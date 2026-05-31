@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIR Epidemiological Model — ICSI6211</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&display=swap');
+
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface2: #f0ede6;
+  --border: #ddd9d0;
+  --border2: #c8c3b8;
+  --text: #1a1916;
+  --muted: #7a7670;
+  --s-col: #1d5fa8;
+  --i-col: #c0392b;
+  --r-col: #1a7a4a;
+  --lock-col: #b8760a;
+  --accent: #1d5fa8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'IBM Plex Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 0;
+}
+
+/* ── TOP HEADER BAR ── */
+.top-bar {
+  background: var(--text);
+  color: var(--bg);
+  padding: 14px 32px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.top-bar h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+.top-bar .meta {
+  font-size: 0.65rem;
+  color: #aaa;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── MAIN LAYOUT ── */
+.page-wrap {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 24px 48px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .top-bar { padding: 12px 16px; }
+  .page-wrap { padding: 16px 16px 40px; }
+}
+
+/* ── CHART AREA ── */
+.chart-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px 20px 12px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.chart-title {
+  font-family: 'Fraunces', serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.chart-subtitle {
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.64rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.leg-line { width: 18px; height: 2px; border-radius: 1px; }
+.leg-dot  { width: 7px; height: 7px; border-radius: 50%; }
+.leg-dash { width: 18px; height: 0; border-top: 2px dashed var(--lock-col); }
+
+.canvas-container {
+  width: 100%;
+  position: relative;
+}
+canvas#chart {
+  display: block;
+  width: 100% !important;
+  height: 360px;
+}
+
+/* ── STAT STRIP ── */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .stat-strip { grid-template-columns: repeat(2, 1fr); }
+}
+.stat-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+.stat-box .s-label {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.stat-box .s-val {
+  font-family: 'Fraunces', serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.stat-box .s-sub {
+  font-size: 0.59rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── RMSE ROW ── */
+.rmse-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 16px;
+}
+.rmse-row .rlabel {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.rmse-row .rval {
+  font-family: 'Fraunces', serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--lock-col);
+}
+.r0-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.r0-chip {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 5px 10px;
+  font-size: 0.63rem;
+  color: var(--muted);
+}
+.r0-chip strong {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-left: 4px;
+}
+
+/* ── CONTROLS PANEL ── */
+.controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.ctrl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+}
+.ctrl-card h2 {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.slider-group { display: flex; flex-direction: column; gap: 14px; }
+.sl-item { display: flex; flex-direction: column; gap: 6px; }
+.sl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.sl-name { font-size: 0.67rem; color: var(--muted); }
+.sl-val  {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+  min-width: 38px;
+  text-align: right;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border2);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.25); }
+input[type=range]::-moz-range-thumb {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+
+.sl-s::-webkit-slider-thumb { background: var(--s-col); }
+.sl-i::-webkit-slider-thumb { background: var(--i-col); }
+.sl-r::-webkit-slider-thumb { background: var(--r-col); }
+.sl-l::-webkit-slider-thumb { background: var(--lock-col); }
+.sl-s { accent-color: var(--s-col); }
+.sl-i { accent-color: var(--i-col); }
+.sl-r { accent-color: var(--r-col); }
+.sl-l { accent-color: var(--lock-col); }
+
+.eqn-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  font-size: 0.66rem;
+  color: var(--muted);
+  line-height: 2;
+}
+.eqn-box code { color: var(--s-col); font-size: 0.68rem; }
+
+.reset-btn {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.reset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(29,95,168,0.04);
+}
+
+/* ── TOOLTIP ── */
+#tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.68rem;
+  line-height: 1.8;
+  display: none;
+  z-index: 999;
+  min-width: 130px;
+}
+#tooltip .t-day {
+  font-family: 'Fraunces', serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.t-s { color: #7aaee8; }
+.t-i { color: #f08080; }
+.t-r { color: #7ecf9e; }
+.t-e { color: #f5c26b; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>SIR Epidemiological Model Simulator</h1>
+  <span class="meta">ICSI6211 · Population: 1,000,000 · IEEE Format</span>
+</div>
+
+<div class="page-wrap">
+<div class="layout">
+
+  <!-- LEFT: chart + stats -->
+  <div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Infected Population Over Time</div>
+          <div class="chart-subtitle">Simulated SIR model vs. observed daily new cases · 300-day period</div>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-line" style="background:var(--s-col)"></div> Susceptible (S)</div>
+          <div class="leg-item"><div class="leg-line" style="background:var(--i-col)"></div> Infected (I)</div>
+          <div class="leg-item"><div class="leg-line" style="background:var(--r-col)"></div> Recovered (R)</div>
+          <div class="leg-item"><div class="leg-dot" style="background:var(--lock-col)"></div> Empirical data</div>
+          <div class="leg-item"><div class="leg-dash"></div> Lockdown</div>
+        </div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-box">
+        <div class="s-label">Peak Infected (sim)</div>
+        <div class="s-val" id="st-peak" style="color:var(--i-col)">—</div>
+        <div class="s-sub" id="st-peak-day">Day —</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">Total Recovered</div>
+        <div class="s-val" id="st-rec" style="color:var(--r-col)">—</div>
+        <div class="s-sub">By simulation end</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">Attack Rate</div>
+        <div class="s-val" id="st-attack" style="color:var(--text)">—</div>
+        <div class="s-sub">% of population infected</div>
+      </div>
+      <div class="stat-box">
+        <div class="s-label">RMSE (vs data)</div>
+        <div class="s-val" id="st-rmse" style="color:var(--lock-col)">—</div>
+        <div class="s-sub">Daily new cases error</div>
+      </div>
+    </div>
+
+    <div class="rmse-row">
+      <div>
+        <div class="rlabel">Reproduction Number R₀ = β / γ</div>
+        <div style="font-size:0.59rem;color:var(--muted);margin-top:2px;">Above 1.0 = epidemic grows · Below 1.0 = epidemic shrinks</div>
+      </div>
+      <div class="r0-chips">
+        <div class="r0-chip">Pre-lockdown <strong id="r0-pre">—</strong></div>
+        <div class="r0-chip">Post-lockdown <strong id="r0-post">—</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: controls -->
+  <div class="controls-col">
+
+    <div class="ctrl-card">
+      <h2>Transmission Parameters</h2>
+      <div class="slider-group">
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Base Beta (β) — pre-lockdown</span><span class="sl-val" id="vb">0.30</span></div>
+          <input type="range" id="sl-beta" class="sl-s" min="0.05" max="0.80" step="0.01" value="0.30">
+        </div>
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Lockdown Beta (β_lock)</span><span class="sl-val" id="vbl">0.22</span></div>
+          <input type="range" id="sl-betaL" class="sl-l" min="0.01" max="0.50" step="0.01" value="0.22">
+        </div>
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Recovery Rate (γ)</span><span class="sl-val" id="vg">0.07</span></div>
+          <input type="range" id="sl-gamma" class="sl-r" min="0.01" max="0.40" step="0.005" value="0.07">
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-card">
+      <h2>Intervention</h2>
+      <div class="slider-group">
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Lockdown Start Day</span><span class="sl-val" id="vld">40</span></div>
+          <input type="range" id="sl-lockday" class="sl-l" min="1" max="280" step="1" value="40">
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-card">
+      <h2>Initial Conditions</h2>
+      <div class="slider-group">
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Initial Infected (I₀)</span><span class="sl-val" id="vi">10</span></div>
+          <input type="range" id="sl-init" class="sl-i" min="1" max="500" step="1" value="10">
+        </div>
+        <div class="sl-item">
+          <div class="sl-head"><span class="sl-name">Simulation Duration (days)</span><span class="sl-val" id="vd">300</span></div>
+          <input type="range" id="sl-days" class="sl-s" min="60" max="400" step="10" value="300">
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl-card">
+      <h2>Model Equations (ODEs)</h2>
+      <div class="eqn-box">
+        <div><code>dS/dt</code> = −β · S · I / N</div>
+        <div><code>dI/dt</code> = β · S · I / N − γ · I</div>
+        <div><code>dR/dt</code> = γ · I</div>
+        <div style="margin-top:8px;font-size:0.6rem;line-height:1.6;color:#999;">
+          β switches to β_lock on lockdown day.<br>
+          Solved via Forward Euler, Δt = 0.1.<br>
+          Daily new cases = β · S · I / N
+        </div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetDefaults()">↺ Reset to Assignment Values</button>
+  </div>
+
+</div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+// ── REAL DATA (from real_covid_data.csv) ──
+const REAL_DATA = [10,12,15,17,19,20,23,37,42,52,58,78,79,86,115,141,174,207,240,256,295,397,498,600,752,816,858,1015,1223,1603,1693,1948,2444,2159,2242,2681,2749,3103,3181,3174,3044,3073,4209,4107,4580,4548,4934,4445,4573,6378,6311,6774,7439,7228,6678,6224,7880,7550,8802,9433,9780,9586,9144,11370,12488,12510,14118,14182,13773,14042,16133,18271,19337,20255,17998,17626,17079,25347,24937,25329,25314,27116,24178,27145,32629,35697,34912,32363,40036,35546,35469,44474,44921,46946,48305,47031,42777,40791,57471,56545,60471,64635,61734,55816,59928,65551,67669,72070,70818,85226,71597,71525,89874,89914,85160,99590,93094,82226,85762,93016,94623,95493,101589,107451,84449,89533,104763,101271,103015,106354,113281,91074,93305,112655,108686,115347,114995,104011,92460,90506,98763,101577,110150,105710,102388,85757,93723,96694,94817,99101,105718,92363,81901,82436,89657,95240,87444,91358,87591,72311,64145,83566,77279,73182,68014,75382,63107,54867,69796,65603,67086,58996,64809,51423,56093,54547,55167,53293,57697,56340,42341,42900,53287,47397,45817,39888,37873,37890,37896,39959,37571,36072,37909,38201,30348,29862,32912,27412,27782,31149,28604,21639,19971,26821,23303,22961,23346,23056,19481,17392,20511,18886,18721,19011,18355,15653,14438,16299,14604,14718,14197,13475,13301,11009,13986,12528,12333,11490,11256,9099,8523,10353,9319,8424,9104,7694,7633,7284,8664,7400,6338,7471,6771,6064,6227,6325,5817,5695,5783,5222,4216,4289,5320,4914,4529,4173,4291,3667,3196,3790,3821,3721,3461,3415,2635,2540,3085,2953,2932,2738,2569,2108,2094,2334,2291,2189,2275,1989,1611,1495,1829,1640,1675,1644,1489,1311,1175,1373,1411,1282,1207,1228,1033,886,1118,960,978,992,961,791,769];
+
+const N = 1_000_000;
+const DT = 0.1;
+
+// Default values calibrated to match real data shape
+const DEFAULTS = { beta: 0.30, betaL: 0.22, gamma: 0.07, lockDay: 40, init: 10, days: 300 };
+
+function getP() {
+  return {
+    beta:    parseFloat(document.getElementById('sl-beta').value),
+    betaL:   parseFloat(document.getElementById('sl-betaL').value),
+    gamma:   parseFloat(document.getElementById('sl-gamma').value),
+    lockDay: parseInt(document.getElementById('sl-lockday').value),
+    init:    parseInt(document.getElementById('sl-init').value),
+    days:    parseInt(document.getElementById('sl-days').value),
+  };
+}
+
+function runSIR(p) {
+  let S = N - p.init, I = p.init, R = 0;
+  const steps = Math.round(p.days / DT);
+  const tArr=[], sArr=[], iArr=[], rArr=[], newArr=[];
+  for (let k = 0; k <= steps; k++) {
+    const t = k * DT;
+    const b = t >= p.lockDay ? p.betaL : p.beta;
+    const newI = b * S * I / N;
+    tArr.push(t); sArr.push(S); iArr.push(I); rArr.push(R); newArr.push(newI);
+    const dS = -newI;
+    const dI =  newI - p.gamma * I;
+    const dR =  p.gamma * I;
+    S = Math.max(0, S + dS * DT);
+    I = Math.max(0, I + dI * DT);
+    R = Math.max(0, R + dR * DT);
+  }
+  return { t: tArr, S: sArr, I: iArr, R: rArr, newI: newArr };
+}
+
+function calcRMSE(simNew, days) {
+  // Compare daily new (sim, sampled at integer days) vs real data
+  const len = Math.min(days + 1, REAL_DATA.length);
+  let sum = 0, cnt = 0;
+  for (let d = 0; d < len; d++) {
+    const idx = Math.round(d / DT);
+    if (idx >= simNew.length) break;
+    const diff = simNew[idx] - REAL_DATA[d];
+    sum += diff * diff;
+    cnt++;
+  }
+  return cnt > 0 ? Math.sqrt(sum / cnt) : 0;
+}
+
+// ── CANVAS DRAWING ──
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let lastDPR = 1;
+
+function setupCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  lastDPR = dpr;
+  const w = canvas.parentElement.clientWidth;
+  const h = 360;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function fmt(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(2)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(0)+'k';
+  return Math.round(n).toLocaleString();
+}
+
+function draw(data, p) {
+  setupCanvas();
+  const W = canvas.width / lastDPR;
+  const H = 360;
+  const pad = { t: 16, r: 16, b: 44, l: 62 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  const totalDays = p.days;
+  const maxY = N;
+  const xS = x => pad.l + (x / totalDays) * pw;
+  const yS = v => pad.t + ph - (v / maxY) * ph;
+
+  // Grid
+  ctx.lineWidth = 1;
+  const yTicks = [0, 200000, 400000, 600000, 800000, 1000000];
+  yTicks.forEach(yv => {
+    const yy = yS(yv);
+    ctx.strokeStyle = '#ece9e2';
+    ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(pad.l+pw, yy); ctx.stroke();
+    ctx.fillStyle = '#999';
+    ctx.font = '10px IBM Plex Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(yv), pad.l - 6, yy + 3);
+  });
+
+  // x-axis ticks every 30 days
+  for (let x = 0; x <= totalDays; x += 30) {
+    const xx = xS(x);
+    ctx.strokeStyle = '#ece9e2';
+    ctx.beginPath(); ctx.moveTo(xx, pad.t); ctx.lineTo(xx, pad.t+ph); ctx.stroke();
+    ctx.fillStyle = '#999';
+    ctx.font = '10px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(x, xx, pad.t+ph+16);
+  }
+
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '10px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Time (Days)', pad.l + pw/2, H - 4);
+  ctx.save();
+  ctx.translate(11, pad.t + ph/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Population', 0, 0);
+  ctx.restore();
+
+  // Axis border
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(pad.l, pad.t, pw, ph);
+
+  // Lockdown line
+  const lx = xS(p.lockDay);
+  ctx.save();
+  ctx.strokeStyle = '#b8760a88';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(lx, pad.t); ctx.lineTo(lx, pad.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#b8760a';
+  ctx.font = 'bold 9px IBM Plex Mono, monospace';
+  ctx.textAlign = lx + 90 > pad.l+pw ? 'right' : 'left';
+  ctx.fillText(`Day ${p.lockDay} Lockdown`, lx + (ctx.textAlign==='left' ? 4 : -4), pad.t + ph - 6);
+  ctx.restore();
+
+  // Stride for performance
+  const stride = Math.max(1, Math.floor(data.t.length / (pw * 1.5)));
+
+  // Fill under Infected
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(192,57,43,0.05)';
+  for (let i = 0; i < data.I.length; i += stride) {
+    const xx = xS(data.t[i]), yy = yS(data.I[i]);
+    i === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
+  }
+  ctx.lineTo(xS(data.t[data.t.length-1]), yS(0));
+  ctx.lineTo(xS(0), yS(0));
+  ctx.closePath(); ctx.fill();
+
+  // Lines
+  function drawLine(arr, col, width) {
+    ctx.beginPath();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < arr.length; i += stride) {
+      const xx = xS(data.t[i]), yy = yS(arr[i]);
+      i === 0 ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  }
+
+  drawLine(data.S, '#1d5fa8', 1.8);
+  drawLine(data.I, '#c0392b', 2.2);
+  drawLine(data.R, '#1a7a4a', 1.8);
+
+  // Real data dots (daily new cases — plotted on I axis for visual comparison)
+  const realLen = Math.min(REAL_DATA.length, totalDays + 1);
+  ctx.fillStyle = '#b8760a';
+  for (let d = 0; d < realLen; d++) {
+    const xx = xS(d);
+    const yy = yS(REAL_DATA[d]);
+    if (xx < pad.l || xx > pad.l+pw) continue;
+    ctx.beginPath();
+    ctx.arc(xx, yy, 2, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // Clip region for chart
+  ctx.save();
+  ctx.rect(pad.l, pad.t, pw, ph);
+  ctx.clip();
+  ctx.restore();
+}
+
+function updateStats(data, p) {
+  let peakI = 0, peakDay = 0;
+  for (let i = 0; i < data.I.length; i++) {
+    if (data.I[i] > peakI) { peakI = data.I[i]; peakDay = data.t[i]; }
+  }
+  const finalR = data.R[data.R.length-1];
+  const rmse = calcRMSE(data.newI, p.days);
+
+  document.getElementById('st-peak').textContent = fmt(Math.round(peakI));
+  document.getElementById('st-peak-day').textContent = `Day ${Math.round(peakDay)}`;
+  document.getElementById('st-rec').textContent = fmt(Math.round(finalR));
+  document.getElementById('st-attack').textContent = (finalR/N*100).toFixed(1)+'%';
+  document.getElementById('st-rmse').textContent = fmt(Math.round(rmse));
+  document.getElementById('r0-pre').textContent = (p.beta/p.gamma).toFixed(2);
+  document.getElementById('r0-post').textContent = (p.betaL/p.gamma).toFixed(2);
+}
+
+function updateLabels() {
+  const p = getP();
+  document.getElementById('vb').textContent  = p.beta.toFixed(2);
+  document.getElementById('vbl').textContent = p.betaL.toFixed(2);
+  document.getElementById('vg').textContent  = p.gamma.toFixed(3);
+  document.getElementById('vld').textContent = p.lockDay;
+  document.getElementById('vi').textContent  = p.init;
+  document.getElementById('vd').textContent  = p.days;
+}
+
+let rafId = null;
+function simulate() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(() => {
+    const p = getP();
+    updateLabels();
+    const data = runSIR(p);
+    draw(data, p);
+    updateStats(data, p);
+    rafId = null;
+    attachTooltip(data, p);
+  });
+}
+
+function resetDefaults() {
+  document.getElementById('sl-beta').value    = DEFAULTS.beta;
+  document.getElementById('sl-betaL').value   = DEFAULTS.betaL;
+  document.getElementById('sl-gamma').value   = DEFAULTS.gamma;
+  document.getElementById('sl-lockday').value = DEFAULTS.lockDay;
+  document.getElementById('sl-init').value    = DEFAULTS.init;
+  document.getElementById('sl-days').value    = DEFAULTS.days;
+  simulate();
+}
+
+// Tooltip
+let tooltipData = null, tooltipP = null;
+function attachTooltip(data, p) { tooltipData = data; tooltipP = p; }
+
+canvas.addEventListener('mousemove', e => {
+  if (!tooltipData) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const pad = { l: 62, r: 16 };
+  const pw = rect.width - pad.l - pad.r;
+  const t = ((mx - pad.l) / pw) * tooltipP.days;
+  if (t < 0 || t > tooltipP.days) { document.getElementById('tooltip').style.display='none'; return; }
+  const idx = Math.min(Math.round(t / DT), tooltipData.t.length - 1);
+  const day = Math.round(tooltipData.t[idx]);
+  const realVal = day < REAL_DATA.length ? REAL_DATA[day].toLocaleString() : '—';
+  const tip = document.getElementById('tooltip');
+  tip.style.display = 'block';
+  tip.style.left = (e.clientX + 16) + 'px';
+  tip.style.top  = (e.clientY - 70) + 'px';
+  tip.innerHTML = `
+    <div class="t-day">Day ${day}</div>
+    <div class="t-s">S: ${Math.round(tooltipData.S[idx]).toLocaleString()}</div>
+    <div class="t-i">I: ${Math.round(tooltipData.I[idx]).toLocaleString()}</div>
+    <div class="t-r">R: ${Math.round(tooltipData.R[idx]).toLocaleString()}</div>
+    <div class="t-e">Observed: ${realVal}</div>`;
+});
+canvas.addEventListener('mouseleave', () => { document.getElementById('tooltip').style.display='none'; });
+
+// Sliders
+['sl-beta','sl-betaL','sl-gamma','sl-lockday','sl-init','sl-days'].forEach(id => {
+  document.getElementById(id).addEventListener('input', simulate);
+});
+
+// Responsive
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(simulate, 80);
+});
+
+// Init
+simulate();
+</script>
+</body>
+</html>
